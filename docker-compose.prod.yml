@@ -1,19 +1,19 @@
 services:
   newsletter:
-    image: newsletter:latest
+    image: newsletter:${VERSION:-latest}
     pull_policy: never
     container_name: newsletter-api
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-      # Persist SQLite database
       - ./data:/app/data
     environment:
       - NODE_ENV=production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 5s
+      timeout: 5s
       retries: 3
       start_period: 10s
+    stop_grace_period: 30s

@@ -46,17 +46,43 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
+            VERSION="${{ steps.version.outputs.VERSION }}"
 
             # Hot backup database before deployment using VACUUM INTO
             if [ -f data/newsletter.db ]; then
               mkdir -p data/backups
-              BACKUP_FILE="data/backups/newsletter_$(date +%Y%m%d_%H%M%S)_before_${{ steps.version.outputs.VERSION }}.db"
+              BACKUP_FILE="data/backups/newsletter_$(date +%Y%m%d_%H%M%S)_before_${VERSION}.db"
               sqlite3 data/newsletter.db "VACUUM INTO '${BACKUP_FILE}'"
               echo "Database backed up to ${BACKUP_FILE}"
             fi
 
+            # Load new image
             docker load < image.tar.gz
-            docker compose -f docker-compose.prod.yml down
-            docker compose -f docker-compose.prod.yml up -d
+
+            # Graceful update: stop old -> start new (minimal downtime)
+            # SQLite only allows one writer, so we can't run both simultaneously
+            # But we minimize downtime by having the new image ready
+            echo "Stopping old container gracefully..."
+            VERSION=${VERSION} docker compose -f docker-compose.prod.yml down --timeout 30 || true
+
+            echo "Starting new container..."
+            VERSION=${VERSION} docker compose -f docker-compose.prod.yml up -d
+
+            # Wait for health check
+            echo "Waiting for container to be healthy..."
+            for i in $(seq 1 30); do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' newsletter-api 2>/dev/null || echo "starting")
+              if [ "$STATUS" = "healthy" ]; then
+                echo "Container is healthy"
+                echo "Deployed version: ${VERSION}"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "Health check timeout, but container may still be starting..."
+              fi
+              sleep 2
+            done
+
+            # Cleanup
             rm image.tar.gz
-            echo "Deployed version: ${{ steps.version.outputs.VERSION }}"
+            docker image prune -f
