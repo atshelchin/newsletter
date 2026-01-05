@@ -48,9 +48,12 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}
             VERSION="${{ steps.version.outputs.VERSION }}"
 
+            # Ensure data directory exists with correct permissions (UID 1000 = bun user)
+            mkdir -p data/backups
+            chown -R 1000:1000 data
+
             # Hot backup database before deployment using VACUUM INTO
             if [ -f data/newsletter.db ]; then
-              mkdir -p data/backups
               BACKUP_FILE="data/backups/newsletter_$(date +%Y%m%d_%H%M%S)_before_${VERSION}.db"
               sqlite3 data/newsletter.db "VACUUM INTO '${BACKUP_FILE}'"
               echo "Database backed up to ${BACKUP_FILE}"

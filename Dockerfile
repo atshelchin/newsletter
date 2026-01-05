@@ -13,8 +13,8 @@ COPY --from=install /app/node_modules ./node_modules
 COPY src ./src
 COPY package.json ./
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
+# Create data directory for SQLite and set ownership
+RUN mkdir -p /app/data && chown -R bun:bun /app/data
 
 # Set environment variables
 ENV NODE_ENV=production
