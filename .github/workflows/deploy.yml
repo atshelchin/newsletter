@@ -52,11 +52,11 @@ jobs:
             mkdir -p data/backups
             chown -R 1000:1000 data
 
-            # Hot backup database before deployment using VACUUM INTO
-            if [ -f data/newsletter.db ]; then
-              BACKUP_FILE="data/backups/newsletter_$(date +%Y%m%d_%H%M%S)_before_${VERSION}.db"
-              sqlite3 data/newsletter.db "VACUUM INTO '${BACKUP_FILE}'"
-              echo "Database backed up to ${BACKUP_FILE}"
+            # Hot backup database before deployment using running container
+            if docker ps -q -f name=newsletter-api | grep -q .; then
+              BACKUP_FILE="backups/newsletter_$(date +%Y%m%d_%H%M%S)_before_${VERSION}.db"
+              docker exec newsletter-api bun run backup "/app/data/${BACKUP_FILE}"
+              echo "Database backed up to data/${BACKUP_FILE}"
             fi
 
             # Load new image
