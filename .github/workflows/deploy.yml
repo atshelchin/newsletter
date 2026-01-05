@@ -32,7 +32,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "image.tar.gz,docker-compose.yml"
+          source: "image.tar.gz,docker-compose.prod.yml"
           target: ${{ secrets.DEPLOY_PATH }}
 
       - name: Deploy on server
@@ -42,10 +42,12 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
+          script_stop: true
           script: |
+            set -e
             cd ${{ secrets.DEPLOY_PATH }}
             docker load < image.tar.gz
-            docker compose down
-            docker compose up -d
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d
             rm image.tar.gz
             echo "Deployed version: ${{ steps.version.outputs.VERSION }}"
