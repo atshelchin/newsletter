@@ -1,6 +1,7 @@
 services:
   newsletter:
     image: newsletter:latest
+    pull_policy: never
     container_name: newsletter-api
     restart: unless-stopped
     ports:
