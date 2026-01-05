@@ -5,7 +5,7 @@
 
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
-import { healthRoute, subscribeRoute, unsubscribeRoute, statsRoute } from './routes';
+import { healthRoute, subscribeRoute, unsubscribeRoute, statsRoute, adminRoute } from './routes';
 
 const app = new Elysia()
   // Enable CORS
@@ -21,6 +21,7 @@ const app = new Elysia()
   .use(subscribeRoute)
   .use(unsubscribeRoute)
   .use(statsRoute)
+  .use(adminRoute)
   .listen(3000);
 
 console.log(`Newsletter API is running at ${app.server?.hostname}:${app.server?.port}`);
