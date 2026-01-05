@@ -1,7 +1,12 @@
 import { Database } from "bun:sqlite";
 
+// Database path: use /app/data in production (Docker), otherwise current directory
+const dbPath = process.env.NODE_ENV === "production"
+  ? "/app/data/newsletter.db"
+  : "newsletter.db";
+
 // Initialize database
-const db = new Database("newsletter.db");
+const db = new Database(dbPath);
 
 // Create subscribers table if not exists
 db.run(`
