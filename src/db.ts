@@ -12,7 +12,7 @@ const db = new Database(dbPath);
 db.run(`
   CREATE TABLE IF NOT EXISTS subscribers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE NOT NULL,
+    email TEXT NOT NULL,
     source TEXT NOT NULL,
     status TEXT DEFAULT 'subscribed' CHECK(status IN ('subscribed', 'unsubscribed')),
     locale_language TEXT,
@@ -27,9 +27,49 @@ db.run(`
     user_agent TEXT,
     referrer TEXT,
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(email, source)
   )
 `);
+
+// Migrate: if old table has UNIQUE on email only, rebuild with UNIQUE(email, source)
+const tableInfo = db.query("SELECT sql FROM sqlite_master WHERE type='table' AND name='subscribers'").get() as { sql: string } | null;
+if (tableInfo?.sql && !tableInfo.sql.includes('UNIQUE(email, source)') && !tableInfo.sql.includes('UNIQUE (email, source)')) {
+  console.log('[DB Migration] Rebuilding subscribers table: UNIQUE(email) -> UNIQUE(email, source)');
+  db.run('BEGIN TRANSACTION');
+  try {
+    db.run('ALTER TABLE subscribers RENAME TO subscribers_old');
+    db.run(`
+      CREATE TABLE subscribers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL,
+        source TEXT NOT NULL,
+        status TEXT DEFAULT 'subscribed' CHECK(status IN ('subscribed', 'unsubscribed')),
+        locale_language TEXT,
+        locale_timezone TEXT,
+        locale_utc_offset INTEGER,
+        device_type TEXT,
+        device_platform TEXT,
+        device_browser TEXT,
+        device_screen_width INTEGER,
+        device_screen_height INTEGER,
+        device_touch_support INTEGER,
+        user_agent TEXT,
+        referrer TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(email, source)
+      )
+    `);
+    db.run('INSERT INTO subscribers SELECT * FROM subscribers_old');
+    db.run('DROP TABLE subscribers_old');
+    db.run('COMMIT');
+    console.log('[DB Migration] Done');
+  } catch (e) {
+    db.run('ROLLBACK');
+    console.error('[DB Migration] Failed, rolled back:', e);
+  }
+}
 
 // Create indexes
 db.run(`CREATE INDEX IF NOT EXISTS idx_email ON subscribers(email)`);
